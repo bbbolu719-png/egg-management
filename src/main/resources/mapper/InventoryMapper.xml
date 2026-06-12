@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+ <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+ <mapper namespace="com.egg.management.mapper.InventoryMapper">
+     <select id="selectStock" resultType="map">
+         SELECT eq.id, eq.name, eq.unit, COALESCE(eq.description, '') AS description,
+                COALESCE(pi.total_in, 0) AS total_purchased,
+                COALESCE(si.total_out, 0) AS total_sold,
+                COALESCE(pi.total_in, 0) - COALESCE(si.total_out, 0) AS current_stock
+         FROM egg_qualities eq
+         LEFT JOIN (
+             SELECT quality_id, SUM(quantity) AS total_in
+             FROM purchase_items pi2
+             JOIN purchases p ON pi2.purchase_id = p.id
+             WHERE p.status = 'completed'
+             GROUP BY quality_id
+         ) pi ON eq.id = pi.quality_id
+         LEFT JOIN (
+             SELECT quality_id, SUM(quantity) AS total_out
+             FROM sale_items si2
+             JOIN sales s ON si2.sale_id = s.id
+             WHERE s.status = 'completed'
+             GROUP BY quality_id
+         ) si ON eq.id = si.quality_id
+         ORDER BY eq.id
+     </select>
+
+     <select id="selectPurchaseMovements" resultType="map">
+         SELECT 'purchase' AS type, p.id, p.purchase_date AS date, pi.quantity, pi.unit_price, s.name AS party_name
+         FROM purchase_items pi
+         JOIN purchases p ON pi.purchase_id = p.id
+         JOIN suppliers s ON p.supplier_id = s.id
+         WHERE pi.quality_id = #{qualityId} AND p.status = 'completed'
+         ORDER BY p.purchase_date DESC
+     </select>
+
+     <select id="selectSaleMovements" resultType="map">
+         SELECT 'sale' AS type, s.id, s.sale_date AS date, si.quantity, si.unit_price, c.name AS party_name
+         FROM sale_items si
+         JOIN sales s ON si.sale_id = s.id
+         JOIN customers c ON s.customer_id = c.id
+         WHERE si.quality_id = #{qualityId} AND s.status = 'completed'
+         ORDER BY s.sale_date DESC
+     </select>
+ </mapper>

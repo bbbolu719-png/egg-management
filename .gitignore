@@ -1,0 +1,33 @@
+
+# Build output
+target/
+*.jar
+*.war
+
+# Maven
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.class
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*
+
+# Spring Boot
+*.pid
+heapdump.*.hprof
+
+# Application runtime
+logs/

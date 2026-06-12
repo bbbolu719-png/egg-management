@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+ <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+ <mapper namespace="com.egg.management.mapper.DashboardMapper">
+     <select id="selectTodayIncome" resultType="map">
+         SELECT COALESCE(SUM(amount),0) AS total FROM cash_flow WHERE flow_date = CURDATE() AND type = 'income'
+     </select>
+
+     <select id="selectTodayExpense" resultType="map">
+         SELECT COALESCE(SUM(amount),0) AS total FROM cash_flow WHERE flow_date = CURDATE() AND type = 'expense'
+     </select>
+
+     <select id="selectLastBalance" resultType="map">
+         SELECT balance_after FROM cash_flow ORDER BY flow_date DESC, id DESC LIMIT 1
+     </select>
+
+     <select id="selectReceivable" resultType="map">
+         SELECT COALESCE(SUM(s.total_amount),0) AS total FROM sales s WHERE s.status = 'completed'
+     </select>
+
+     <select id="selectReceived" resultType="map">
+         SELECT COALESCE(SUM(amount),0) AS total FROM receipts WHERE status = 'received'
+     </select>
+
+     <select id="selectPayable" resultType="map">
+         SELECT COALESCE(SUM(p.total_amount + p.fuel_cost + p.crate_cost + p.bag_cost + p.other_cost),0) AS total FROM purchases p WHERE p.status = 'completed'
+     </select>
+
+     <select id="selectPaid" resultType="map">
+         SELECT COALESCE(SUM(amount),0) AS total FROM payments WHERE status = 'paid'
+     </select>
+
+     <select id="selectStock" resultType="map">
+         SELECT q.id AS quality_id, q.name AS quality_name, q.unit,
+                COALESCE(pi.total_in, 0) - COALESCE(si.total_out, 0) AS quantity
+         FROM egg_qualities q
+         LEFT JOIN (SELECT quality_id, SUM(quantity) AS total_in FROM purchase_items GROUP BY quality_id) pi ON q.id = pi.quality_id
+         LEFT JOIN (SELECT quality_id, SUM(quantity) AS total_out FROM sale_items GROUP BY quality_id) si ON q.id = si.quality_id
+         ORDER BY q.id
+     </select>
+
+     <select id="selectRecentPurchases" resultType="map">
+         SELECT p.id, p.purchase_date, s.name AS supplier_name, p.total_amount
+         FROM purchases p
+         LEFT JOIN suppliers s ON p.supplier_id = s.id
+         ORDER BY p.purchase_date DESC, p.id DESC
+         LIMIT 5
+     </select>
+
+     <select id="selectRecentSales" resultType="map">
+         SELECT s.id, s.sale_date, c.name AS customer_name, s.total_amount
+         FROM sales s
+         LEFT JOIN customers c ON s.customer_id = c.id
+         ORDER BY s.sale_date DESC, s.id DESC
+         LIMIT 5
+     </select>
+ </mapper>

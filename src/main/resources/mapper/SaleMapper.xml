@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+ <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+ <mapper namespace="com.egg.management.mapper.SaleMapperCustom">
+     <select id="selectSalePage" resultType="map">
+         SELECT s.*, c.name AS customer_name
+         FROM sales s
+         LEFT JOIN customers c ON s.customer_id = c.id
+         ORDER BY s.sale_date DESC, s.id DESC
+     </select>
+
+     <select id="selectSaleById" resultType="map">
+         SELECT s.*, c.name AS customer_name
+         FROM sales s
+         LEFT JOIN customers c ON s.customer_id = c.id
+         WHERE s.id = #{id}
+     </select>
+
+     <select id="selectSaleItems" resultType="map">
+         SELECT si.*, eq.name AS quality_name
+         FROM sale_items si
+         LEFT JOIN egg_qualities eq ON si.quality_id = eq.id
+         WHERE si.sale_id = #{saleId}
+     </select>
+ </mapper>
