@@ -125,8 +125,6 @@
 
      @Override
      @Transactional(rollbackFor = Exception.class)
-
-    @Override
     public void markAsPaid(Long id) {
         Purchase purchase = new Purchase();
         purchase.setId(id);

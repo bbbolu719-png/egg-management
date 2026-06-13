@@ -120,8 +120,6 @@
 
      @Override
      @Transactional(rollbackFor = Exception.class)
-
-    @Override
     public void markAsReceived(Long id) {
         Sale sale = new Sale();
         sale.setId(id);
