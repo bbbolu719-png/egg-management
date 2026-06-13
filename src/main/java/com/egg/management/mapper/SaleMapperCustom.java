@@ -11,4 +11,5 @@
      IPage<Map<String, Object>> selectSalePage(Page<?> page);
      Map<String, Object> selectSaleById(@Param("id") Long id);
      List<Map<String, Object>> selectSaleItems(@Param("saleId") Long saleId);
+     List<Map<String, Object>> selectReceipts(@Param("saleId") Long saleId);
  }

@@ -25,6 +25,17 @@ public class Purchase {
     private String qrImage;
     @JsonProperty("payment_status")
     private String paymentStatus;
+    @JsonProperty("fuel_cost")
+    private BigDecimal fuelCost;
+    @JsonProperty("crate_cost")
+    private BigDecimal crateCost;
+    @JsonProperty("bag_cost")
+    private BigDecimal bagCost;
+    @JsonProperty("other_cost")
+    private BigDecimal otherCost;
+    @JsonProperty("paid_amount")
+    private BigDecimal paidAmount;
+    private String orderNo;
     private String notes;
     private String status;
     private LocalDateTime createdAt;

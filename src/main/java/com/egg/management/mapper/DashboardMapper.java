@@ -11,6 +11,7 @@
      Map<String, Object> selectReceived();
      Map<String, Object> selectPayable();
      Map<String, Object> selectPaid();
+     Map<String, Object> selectTotalCost();
      List<Map<String, Object>> selectStock();
      List<Map<String, Object>> selectRecentPurchases();
      List<Map<String, Object>> selectRecentSales();

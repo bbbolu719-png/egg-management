@@ -2,6 +2,7 @@
 
  import com.egg.management.dto.PurchaseRequest;
 
+ import java.math.BigDecimal;
  import java.util.Map;
 
  public interface PurchaseService {
@@ -10,5 +11,6 @@
      void deletePurchase(Long id);
      Map<String, Object> getPurchase(Long id);
      Map<String, Object> listPurchases(int page, int pageSize);
-    void markAsPaid(Long id);
+     Map<String, Object> recordPayment(Long id, BigDecimal amount, String method, String paymentDate);
+     void closePayment(Long id);
  }

@@ -6,6 +6,7 @@
  import org.springframework.beans.factory.annotation.Autowired;
  import org.springframework.web.bind.annotation.*;
 
+ import java.math.BigDecimal;
  import java.util.Map;
 
  @RestController
@@ -47,14 +48,21 @@
      }
 
      @DeleteMapping("/{id}")
-
-    @PostMapping("/{id}/receive")
-    public ApiResponse<?> markReceived(@PathVariable Long id) {
-        saleService.markAsReceived(id);
-        return ApiResponse.ok(Map.of("id", id));
-    }
      public ApiResponse<?> delete(@PathVariable Long id) {
          saleService.deleteSale(id);
+         return ApiResponse.ok(Map.of("id", id));
+     }
+
+     @PostMapping("/{id}/receive")
+     public ApiResponse<?> recordReceipt(@PathVariable Long id,
+                                          @RequestParam BigDecimal amount,
+                                          @RequestParam String receiptDate) {
+         return ApiResponse.ok(saleService.recordReceipt(id, amount, receiptDate));
+     }
+
+     @PostMapping("/{id}/close")
+     public ApiResponse<?> closeReceipt(@PathVariable Long id) {
+         saleService.closeReceipt(id);
          return ApiResponse.ok(Map.of("id", id));
      }
  }

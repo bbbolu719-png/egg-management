@@ -14,7 +14,9 @@
      </select>
 
      <select id="selectReceivable" resultType="map">
-         SELECT COALESCE(SUM(s.total_amount),0) AS total FROM sales s WHERE s.status = 'completed'
+         SELECT COALESCE(SUM(s.total_amount - COALESCE(s.received_amount, 0)), 0) AS total
+         FROM sales s
+         WHERE s.status = 'completed' AND s.receipt_status IN ('unreceived', 'partial')
      </select>
 
      <select id="selectReceived" resultType="map">
@@ -22,11 +24,17 @@
      </select>
 
      <select id="selectPayable" resultType="map">
-         SELECT COALESCE(SUM(p.total_amount + p.fuel_cost + p.crate_cost + p.bag_cost + p.other_cost),0) AS total FROM purchases p WHERE p.status = 'completed'
+         SELECT COALESCE(SUM(p.total_amount + COALESCE(p.fuel_cost, 0) + COALESCE(p.crate_cost, 0) + COALESCE(p.bag_cost, 0) + COALESCE(p.other_cost, 0) - COALESCE(p.paid_amount, 0)), 0) AS total
+         FROM purchases p
+         WHERE p.status = 'completed' AND p.payment_status IN ('unpaid', 'partial')
      </select>
 
      <select id="selectPaid" resultType="map">
          SELECT COALESCE(SUM(amount),0) AS total FROM payments WHERE status = 'paid'
+     </select>
+
+     <select id="selectTotalCost" resultType="map">
+         SELECT COALESCE(SUM(amount),0) AS total FROM costs
      </select>
 
      <select id="selectStock" resultType="map">

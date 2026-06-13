@@ -5,6 +5,7 @@
  import com.egg.management.dto.ItemRequest;
  import com.egg.management.dto.PurchaseRequest;
  import com.egg.management.entity.CashFlow;
+ import com.egg.management.entity.Payment;
  import com.egg.management.entity.Purchase;
  import com.egg.management.entity.PurchaseItem;
  import com.egg.management.mapper.*;
@@ -30,12 +31,14 @@
      private CashFlowMapper cashFlowMapper;
 
      @Autowired
+     private PaymentMapper paymentMapper;
+
+     @Autowired
      private PurchaseMapperCustom purchaseMapperCustom;
 
      @Override
      @Transactional(rollbackFor = Exception.class)
      public Long createPurchase(PurchaseRequest req) {
-         // Calculate total amount from items
          BigDecimal totalAmount = BigDecimal.ZERO;
          if (req.getItems() != null) {
              for (ItemRequest item : req.getItems()) {
@@ -43,19 +46,24 @@
              }
          }
 
-         // Insert purchase
-        Purchase purchase = new Purchase();
-        purchase.setSupplierId(req.getSupplierId());
-        purchase.setPurchaseDate(LocalDate.parse(req.getPurchaseDate()));
-        purchase.setTotalAmount(totalAmount);
-        purchase.setQrImage(req.getQrImage());
-        purchase.setPaymentStatus("unpaid");
-        purchase.setNotes(req.getNotes() != null ? req.getNotes() : "");
-        purchase.setStatus(req.getStatus() != null ? req.getStatus() : "completed");
-        purchaseMapper.insert(purchase);
+         Purchase purchase = new Purchase();
+         purchase.setSupplierId(req.getSupplierId());
+         purchase.setPurchaseDate(LocalDate.parse(req.getPurchaseDate()));
+         purchase.setTotalAmount(totalAmount);
+         purchase.setFuelCost(req.getFuelCost());
+         purchase.setCrateCost(req.getCrateCost());
+         purchase.setBagCost(req.getBagCost());
+         purchase.setOtherCost(req.getOtherCost());
+         purchase.setQrImage(req.getQrImage());
+         purchase.setPaymentStatus("unpaid");
+         purchase.setPaidAmount(BigDecimal.ZERO);
+         purchase.setNotes(req.getNotes() != null ? req.getNotes() : "");
+         purchase.setStatus(req.getStatus() != null ? req.getStatus() : "completed");
+         purchaseMapper.insert(purchase);
          Long purchaseId = purchase.getId();
+         purchase.setOrderNo("CG" + LocalDate.now().toString().replace("-", "") + String.format("%04d", purchaseId));
+         purchaseMapper.updateById(purchase);
 
-         // Insert items
          if (req.getItems() != null) {
              for (ItemRequest item : req.getItems()) {
                  PurchaseItem pi = new PurchaseItem();
@@ -68,10 +76,13 @@
              }
          }
 
-        // Insert cash flow
-        BigDecimal totalCost = totalAmount;
+         BigDecimal totalCost = totalAmount;
+         if (req.getFuelCost() != null) totalCost = totalCost.add(req.getFuelCost());
+         if (req.getCrateCost() != null) totalCost = totalCost.add(req.getCrateCost());
+         if (req.getBagCost() != null) totalCost = totalCost.add(req.getBagCost());
+         if (req.getOtherCost() != null) totalCost = totalCost.add(req.getOtherCost());
 
-        CashFlow cashFlow = new CashFlow();
+         CashFlow cashFlow = new CashFlow();
          cashFlow.setFlowDate(LocalDate.parse(req.getPurchaseDate()));
          cashFlow.setType("expense");
          cashFlow.setAmount(totalCost);
@@ -87,7 +98,6 @@
      @Override
      @Transactional(rollbackFor = Exception.class)
      public void updatePurchase(Long id, PurchaseRequest req) {
-         // Update purchase
          BigDecimal totalAmount = BigDecimal.ZERO;
          if (req.getItems() != null) {
              for (ItemRequest item : req.getItems()) {
@@ -99,14 +109,33 @@
          purchase.setId(id);
          purchase.setSupplierId(req.getSupplierId());
          purchase.setPurchaseDate(LocalDate.parse(req.getPurchaseDate()));
-        purchase.setTotalAmount(totalAmount);
-        purchase.setQrImage(req.getQrImage());
-        purchase.setPaymentStatus("unpaid");
-        purchase.setNotes(req.getNotes() != null ? req.getNotes() : "");
-        purchase.setStatus(req.getStatus() != null ? req.getStatus() : "completed");
-        purchaseMapper.updateById(purchase);
+         purchase.setTotalAmount(totalAmount);
+         purchase.setFuelCost(req.getFuelCost());
+         purchase.setCrateCost(req.getCrateCost());
+         purchase.setBagCost(req.getBagCost());
+         purchase.setOtherCost(req.getOtherCost());
+         purchase.setQrImage(req.getQrImage());
+         purchase.setNotes(req.getNotes() != null ? req.getNotes() : "");
+         purchase.setStatus(req.getStatus() != null ? req.getStatus() : "completed");
+         purchaseMapper.updateById(purchase);
 
-         // Delete old items and insert new ones
+         // Recalculate payment status based on current paid_amount vs new total_amount
+         Purchase existing = purchaseMapper.selectById(id);
+         if (!"closed".equals(existing.getPaymentStatus())) {
+             String newStatus;
+             if (existing.getPaidAmount() == null || existing.getPaidAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                 newStatus = "unpaid";
+             } else if (existing.getPaidAmount().compareTo(totalAmount) >= 0) {
+                 newStatus = "paid";
+             } else {
+                 newStatus = "partial";
+             }
+             Purchase statusUpdate = new Purchase();
+             statusUpdate.setId(id);
+             statusUpdate.setPaymentStatus(newStatus);
+             purchaseMapper.updateById(statusUpdate);
+         }
+
          purchaseItemMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PurchaseItem>()
                  .eq(PurchaseItem::getPurchaseId, id));
 
@@ -125,13 +154,62 @@
 
      @Override
      @Transactional(rollbackFor = Exception.class)
-    public void markAsPaid(Long id) {
-        Purchase purchase = new Purchase();
-        purchase.setId(id);
-        purchase.setPaymentStatus("paid");
-        purchaseMapper.updateById(purchase);
-    }
+     public Map<String, Object> recordPayment(Long id, BigDecimal amount, String method, String paymentDate) {
+         // Get purchase to find supplier_id
+         Purchase purchase = purchaseMapper.selectById(id);
 
+         // Insert payment record
+         Payment payment = new Payment();
+         payment.setPurchaseId(id);
+         payment.setSupplierId(purchase.getSupplierId());
+         payment.setAmount(amount);
+         payment.setPaymentDate(LocalDate.parse(paymentDate));
+         payment.setMethod(method != null ? method : "cash");
+         payment.setStatus("paid");
+         paymentMapper.insert(payment);
+
+         // Update paid_amount
+         BigDecimal newPaid = purchase.getPaidAmount().add(amount);
+         purchase.setPaidAmount(newPaid);
+
+         // Determine payment status
+         String status;
+         if (newPaid.compareTo(purchase.getTotalAmount()) >= 0) {
+             status = "paid";
+         } else {
+             status = "partial";
+         }
+         purchase.setPaymentStatus(status);
+         purchaseMapper.updateById(purchase);
+
+         // Insert cash flow
+         CashFlow cashFlow = new CashFlow();
+         cashFlow.setFlowDate(LocalDate.parse(paymentDate));
+         cashFlow.setType("expense");
+         cashFlow.setAmount(amount);
+         cashFlow.setCategory("payment");
+         cashFlow.setRefType("payment");
+         cashFlow.setRefId(payment.getId());
+         cashFlow.setDescription("采购付款 #" + purchase.getId() + " 第" + payment.getId() + "笔");
+         cashFlowMapper.insert(cashFlow);
+
+         Map<String, Object> result = new LinkedHashMap<>();
+         result.put("paid_amount", newPaid);
+         result.put("payment_status", status);
+         result.put("payment_id", payment.getId());
+         return result;
+     }
+
+     @Override
+     @Transactional(rollbackFor = Exception.class)
+     public void closePayment(Long id) {
+         Purchase purchase = new Purchase();
+         purchase.setId(id);
+         purchase.setPaymentStatus("closed");
+         purchaseMapper.updateById(purchase);
+     }
+
+     @Override
      public void deletePurchase(Long id) {
          purchaseItemMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PurchaseItem>()
                  .eq(PurchaseItem::getPurchaseId, id));
@@ -146,6 +224,8 @@
          }
          List<Map<String, Object>> items = purchaseMapperCustom.selectPurchaseItems(id);
          purchase.put("items", items);
+         List<Map<String, Object>> payments = purchaseMapperCustom.selectPayments(id);
+         purchase.put("payments", payments);
          return purchase;
      }
 
@@ -154,7 +234,6 @@
          Page<Map<String, Object>> pageObj = new Page<>(page, pageSize);
          IPage<Map<String, Object>> result = purchaseMapperCustom.selectPurchasePage(pageObj);
 
-         // Attach items to each purchase
          List<Map<String, Object>> records = result.getRecords();
          for (Map<String, Object> record : records) {
              Long purchaseId = ((Number) record.get("id")).longValue();

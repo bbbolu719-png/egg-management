@@ -21,4 +21,11 @@
          LEFT JOIN egg_qualities eq ON pi.quality_id = eq.id
          WHERE pi.purchase_id = #{purchaseId}
      </select>
+
+     <select id="selectPayments" resultType="map">
+         SELECT id, amount, payment_date, method, status, notes, created_at
+         FROM payments
+         WHERE purchase_id = #{purchaseId}
+         ORDER BY payment_date ASC, id ASC
+     </select>
  </mapper>

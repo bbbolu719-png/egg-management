@@ -21,14 +21,16 @@
          Map<String, Object> balanceRow = dashboardMapper.selectLastBalance();
 
          Map<String, Object> receivableRow = dashboardMapper.selectReceivable();
-         Map<String, Object> receivedRow = dashboardMapper.selectReceived();
          Map<String, Object> payableRow = dashboardMapper.selectPayable();
-         Map<String, Object> paidRow = dashboardMapper.selectPaid();
+         Map<String, Object> totalReceivedRow = dashboardMapper.selectReceived();
+         Map<String, Object> totalPaidRow = dashboardMapper.selectPaid();
+         Map<String, Object> totalCostRow = dashboardMapper.selectTotalCost();
 
-         java.math.BigDecimal receivable = ((java.math.BigDecimal) receivableRow.get("total"))
-                 .subtract((java.math.BigDecimal) receivedRow.get("total"));
-         java.math.BigDecimal payable = ((java.math.BigDecimal) payableRow.get("total"))
-                 .subtract((java.math.BigDecimal) paidRow.get("total"));
+         java.math.BigDecimal receivable = ((java.math.BigDecimal) receivableRow.get("total"));
+         java.math.BigDecimal payable = ((java.math.BigDecimal) payableRow.get("total"));
+         java.math.BigDecimal totalReceived = ((java.math.BigDecimal) totalReceivedRow.get("total"));
+         java.math.BigDecimal totalPaid = ((java.math.BigDecimal) totalPaidRow.get("total"));
+         java.math.BigDecimal totalCost = ((java.math.BigDecimal) totalCostRow.get("total"));
 
          Object balance = balanceRow != null ? balanceRow.get("balance_after") : 0;
 
@@ -41,6 +43,9 @@
          result.put("balance", balance);
          result.put("receivable", receivable);
          result.put("payable", payable);
+         result.put("total_received", totalReceived);
+         result.put("total_paid", totalPaid);
+         result.put("total_cost", totalCost);
          result.put("stock", dashboardMapper.selectStock());
          result.put("recent_purchases", dashboardMapper.selectRecentPurchases());
          result.put("recent_sales", dashboardMapper.selectRecentSales());

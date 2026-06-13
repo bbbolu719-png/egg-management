@@ -145,3 +145,16 @@ CREATE TABLE IF NOT EXISTS cash_flow (
 
 ALTER TABLE sales ADD COLUMN receipt_status VARCHAR(20) DEFAULT 'unreceived';
 UPDATE sales SET receipt_status = 'unreceived' WHERE receipt_status IS NULL;
+
+ALTER TABLE purchases ADD COLUMN paid_amount DECIMAL(12,2) DEFAULT 0.00;
+UPDATE purchases SET paid_amount = 0.00 WHERE paid_amount IS NULL;
+ALTER TABLE sales ADD COLUMN received_amount DECIMAL(12,2) DEFAULT 0.00;
+UPDATE sales SET received_amount = 0.00 WHERE received_amount IS NULL;
+
+ALTER TABLE suppliers ADD COLUMN qr_image LONGTEXT DEFAULT NULL;
+ALTER TABLE customers ADD COLUMN qr_image LONGTEXT DEFAULT NULL;
+
+ALTER TABLE purchases ADD COLUMN order_no VARCHAR(50) DEFAULT NULL;
+UPDATE purchases SET order_no = CONCAT('CG', DATE_FORMAT(created_at, '%Y%m%d'), LPAD(id, 4, '0')) WHERE order_no IS NULL;
+ALTER TABLE sales ADD COLUMN order_no VARCHAR(50) DEFAULT NULL;
+UPDATE sales SET order_no = CONCAT('XS', DATE_FORMAT(created_at, '%Y%m%d'), LPAD(id, 4, '0')) WHERE order_no IS NULL;

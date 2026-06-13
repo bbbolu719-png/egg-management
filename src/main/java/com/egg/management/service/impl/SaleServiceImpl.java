@@ -6,6 +6,7 @@
  import com.egg.management.dto.ItemRequest;
  import com.egg.management.dto.SaleRequest;
  import com.egg.management.entity.CashFlow;
+ import com.egg.management.entity.Receipt;
  import com.egg.management.entity.Sale;
  import com.egg.management.entity.SaleItem;
  import com.egg.management.mapper.*;
@@ -31,12 +32,14 @@
      private CashFlowMapper cashFlowMapper;
 
      @Autowired
+     private ReceiptMapper receiptMapper;
+
+     @Autowired
      private SaleMapperCustom saleMapperCustom;
 
      @Override
      @Transactional(rollbackFor = Exception.class)
      public Long createSale(SaleRequest req) {
-         // Calculate total amount
          BigDecimal totalAmount = BigDecimal.ZERO;
          if (req.getItems() != null) {
              for (ItemRequest item : req.getItems()) {
@@ -44,17 +47,18 @@
              }
          }
 
-         // Insert sale
          Sale sale = new Sale();
          sale.setCustomerId(req.getCustomerId());
          sale.setSaleDate(LocalDate.parse(req.getSaleDate()));
          sale.setTotalAmount(totalAmount);
+         sale.setReceivedAmount(BigDecimal.ZERO);
          sale.setNotes(req.getNotes() != null ? req.getNotes() : "");
          sale.setStatus(req.getStatus() != null ? req.getStatus() : "completed");
          saleMapper.insert(sale);
          Long saleId = sale.getId();
+         sale.setOrderNo("XS" + LocalDate.now().toString().replace("-", "") + String.format("%04d", saleId));
+         saleMapper.updateById(sale);
 
-         // Insert items
          if (req.getItems() != null) {
              for (ItemRequest item : req.getItems()) {
                  SaleItem si = new SaleItem();
@@ -67,7 +71,6 @@
              }
          }
 
-         // Insert cash flow
          CashFlow cashFlow = new CashFlow();
          cashFlow.setFlowDate(LocalDate.parse(req.getSaleDate()));
          cashFlow.setType("income");
@@ -84,7 +87,6 @@
      @Override
      @Transactional(rollbackFor = Exception.class)
      public void updateSale(Long id, SaleRequest req) {
-         // Update sale
          BigDecimal totalAmount = BigDecimal.ZERO;
          if (req.getItems() != null) {
              for (ItemRequest item : req.getItems()) {
@@ -101,7 +103,23 @@
          sale.setStatus(req.getStatus() != null ? req.getStatus() : "completed");
          saleMapper.updateById(sale);
 
-         // Delete old items and insert new ones
+         // Recalculate receipt status based on current received_amount vs new total_amount
+         Sale existing = saleMapper.selectById(id);
+         if (!"closed".equals(existing.getReceiptStatus())) {
+             String newStatus;
+             if (existing.getReceivedAmount() == null || existing.getReceivedAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                 newStatus = "unreceived";
+             } else if (existing.getReceivedAmount().compareTo(totalAmount) >= 0) {
+                 newStatus = "received";
+             } else {
+                 newStatus = "partial";
+             }
+             Sale statusUpdate = new Sale();
+             statusUpdate.setId(id);
+             statusUpdate.setReceiptStatus(newStatus);
+             saleMapper.updateById(statusUpdate);
+         }
+
          saleItemMapper.delete(new LambdaQueryWrapper<SaleItem>()
                  .eq(SaleItem::getSaleId, id));
 
@@ -120,12 +138,61 @@
 
      @Override
      @Transactional(rollbackFor = Exception.class)
-    public void markAsReceived(Long id) {
-        Sale sale = new Sale();
-        sale.setId(id);
-        sale.setReceiptStatus("received");
-        saleMapper.updateById(sale);
-    }
+     public Map<String, Object> recordReceipt(Long id, BigDecimal amount, String receiptDate) {
+         // Get sale to find customer_id
+         Sale sale = saleMapper.selectById(id);
+
+         // Insert receipt record
+         Receipt receipt = new Receipt();
+         receipt.setSaleId(id);
+         receipt.setCustomerId(sale.getCustomerId());
+         receipt.setAmount(amount);
+         receipt.setReceiptDate(LocalDate.parse(receiptDate));
+         receipt.setStatus("received");
+         receiptMapper.insert(receipt);
+
+         // Update received_amount
+         BigDecimal newReceived = sale.getReceivedAmount().add(amount);
+         sale.setReceivedAmount(newReceived);
+
+         // Determine receipt status
+         String status;
+         if (newReceived.compareTo(sale.getTotalAmount()) >= 0) {
+             status = "received";
+         } else {
+             status = "partial";
+         }
+         sale.setReceiptStatus(status);
+         saleMapper.updateById(sale);
+
+         // Insert cash flow
+         CashFlow cashFlow = new CashFlow();
+         cashFlow.setFlowDate(LocalDate.parse(receiptDate));
+         cashFlow.setType("income");
+         cashFlow.setAmount(amount);
+         cashFlow.setCategory("receipt");
+         cashFlow.setRefType("receipt");
+         cashFlow.setRefId(receipt.getId());
+         cashFlow.setDescription("销售收款 #" + sale.getId() + " 第" + receipt.getId() + "笔");
+         cashFlowMapper.insert(cashFlow);
+
+         Map<String, Object> result = new LinkedHashMap<>();
+         result.put("received_amount", newReceived);
+         result.put("receipt_status", status);
+         result.put("receipt_id", receipt.getId());
+         return result;
+     }
+
+     @Override
+     @Transactional(rollbackFor = Exception.class)
+     public void closeReceipt(Long id) {
+         Sale sale = new Sale();
+         sale.setId(id);
+         sale.setReceiptStatus("closed");
+         saleMapper.updateById(sale);
+     }
+
+     @Override
      public void deleteSale(Long id) {
          saleItemMapper.delete(new LambdaQueryWrapper<SaleItem>()
                  .eq(SaleItem::getSaleId, id));
@@ -140,6 +207,8 @@
          }
          List<Map<String, Object>> items = saleMapperCustom.selectSaleItems(id);
          sale.put("items", items);
+         List<Map<String, Object>> receipts = saleMapperCustom.selectReceipts(id);
+         sale.put("receipts", receipts);
          return sale;
      }
 

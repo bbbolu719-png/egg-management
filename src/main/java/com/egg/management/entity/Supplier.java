@@ -20,5 +20,6 @@ public class Supplier {
     private String phone;
     private String address;
     private String notes;
+    private String qrImage;
     private LocalDateTime createdAt;
 }

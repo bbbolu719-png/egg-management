@@ -21,4 +21,11 @@
          LEFT JOIN egg_qualities eq ON si.quality_id = eq.id
          WHERE si.sale_id = #{saleId}
      </select>
+
+     <select id="selectReceipts" resultType="map">
+         SELECT id, amount, receipt_date, status, notes, created_at
+         FROM receipts
+         WHERE sale_id = #{saleId}
+         ORDER BY receipt_date ASC, id ASC
+     </select>
  </mapper>

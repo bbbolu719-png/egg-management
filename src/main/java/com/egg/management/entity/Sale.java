@@ -23,6 +23,9 @@ public class Sale {
     private BigDecimal totalAmount;
     @JsonProperty("receipt_status")
     private String receiptStatus;
+    @JsonProperty("received_amount")
+    private BigDecimal receivedAmount;
+    private String orderNo;
     private String notes;
     private String status;
     private LocalDateTime createdAt;
